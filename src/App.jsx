@@ -2,6 +2,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 function App() {
+  // Define la URL base de tu API
+  // En desarrollo, Vite proxy redirige /api a localhost:3001 (configurado en vite.config.js)
+  // En producción (después del build), VITE_API_URL será la URL de tu backend desplegado en Railway
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
   // Estado para controlar la página actual que se muestra
   const [currentPage, setCurrentPage] = useState('dashboard'); // 'dashboard', 'allTasks', 'createTask', 'taskDetails', 'dependencies', 'history'
 
@@ -42,7 +47,7 @@ function App() {
   const [showNewTasksAlert, setShowNewTasksAlert] = useState(false);
   const [newTasksList, setNewTasksList] = useState([]);
   const [alertTitle, setAlertTitle] = useState('');
-  const [alertContent, setAlertContent] = useState('');
+  const [alertContent, setAlertContent] = '';
 
   // Nuevos estados para los conteos de notificaciones
   const [overdueCount, setOverdueCount] = useState(0);
@@ -65,7 +70,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/tasks');
+      const response = await fetch(`${API_BASE_URL}/tasks`); // <-- CAMBIO AQUÍ
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -84,7 +89,7 @@ function App() {
   // Función para obtener el conteo de tareas vencidas (filtrado por última revisión)
   const calculateOverdueCount = useCallback(async () => {
     try {
-      const response = await fetch('/api/tasks/overdue');
+      const response = await fetch(`${API_BASE_URL}/tasks/overdue`); // <-- CAMBIO AQUÍ
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -92,19 +97,7 @@ function App() {
       // Filtrar solo las tareas que se vencieron *después* de la última vez que se revisó
       const newOverdue = data.filter(task => {
         const taskOverdueDate = new Date(task.fecha_limite).getTime(); // Convertir a timestamp
-        // Consideramos que una tarea es "nueva vencida" si su fecha límite es anterior a hoy
-        // Y si la tarea fue actualizada a "Vencida" o su fecha límite pasó después de la última revisión.
-        // Simplificación: si su fecha límite es anterior a hoy y la última vez que la vimos fue antes de hoy.
-        // O si la tarea fue marcada como 'Vencida' después de la última revisión.
-        // Para ser más precisos, necesitamos la fecha en que cambió a 'Vencida'.
-        // Por ahora, nos basaremos en la fecha de actualización si es más reciente que la fecha límite
-        // o simplemente la fecha límite si es el único indicador de "vencida".
-
-        // Para una lógica más robusta, idealmente el backend debería darnos la fecha de cambio de estado.
-        // Dado que no la tenemos, usaremos la fecha de actualización si es más reciente que la fecha límite,
-        // o la fecha límite misma.
         const relevantDate = task.fecha_actualizacion ? new Date(task.fecha_actualizacion).getTime() : taskOverdueDate;
-
         return relevantDate > lastOverdueViewedTimestamp;
       });
       setOverdueCount(newOverdue.length);
@@ -112,12 +105,12 @@ function App() {
       console.error("Error al obtener el conteo de tareas vencidas:", error);
       setOverdueCount(0); // Resetear conteo en caso de error
     }
-  }, [lastOverdueViewedTimestamp]); // Depende de lastOverdueViewedTimestamp
+  }, [lastOverdueViewedTimestamp, API_BASE_URL]); // Depende de lastOverdueViewedTimestamp y API_BASE_URL
 
   // Función para obtener el conteo de nuevas tareas (filtrado por última revisión)
   const calculateNewTasksCount = useCallback(async () => {
     try {
-      const response = await fetch('/api/tasks/newly-created');
+      const response = await fetch(`${API_BASE_URL}/tasks/newly-created`); // <-- CAMBIO AQUÍ
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -132,14 +125,14 @@ function App() {
       console.error("Error al obtener el conteo de nuevas tareas:", error);
       setNewTasksCount(0); // Resetear conteo en caso de error
     }
-  }, [lastNewTasksViewedTimestamp]); // Depende de lastNewTasksViewedTimestamp
+  }, [lastNewTasksViewedTimestamp, API_BASE_URL]); // Depende de lastNewTasksViewedTimestamp y API_BASE_URL
 
 
   // useEffect para cargar tareas y conteos de notificaciones al inicio
   useEffect(() => {
     fetchTasks();
     // Los conteos se calcularán cuando lastOverdueViewedTimestamp y lastNewTasksViewedTimestamp se inicialicen
-  }, []);
+  }, [API_BASE_URL]); // Añadido API_BASE_URL como dependencia para asegurar que se ejecute cuando esté lista
 
   // useEffect para recalcular los conteos cuando las tareas cambian o los timestamps de vista cambian
   useEffect(() => {
@@ -194,7 +187,7 @@ function App() {
     }
 
     try {
-      const response = await fetch('/api/tasks', {
+      const response = await fetch(`${API_BASE_URL}/tasks`, { // <-- CAMBIO AQUÍ
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +250,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(`/api/tasks/${editedTask.id_tarea}`, {
+      const response = await fetch(`${API_BASE_URL}/tasks/${editedTask.id_tarea}`, { // <-- CAMBIO AQUÍ
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -288,7 +281,7 @@ function App() {
     setFormMessage(null);
 
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, { // <-- CAMBIO AQUÍ
         method: 'DELETE',
       });
 
@@ -314,7 +307,7 @@ function App() {
     }
     setDependencyMessage(null);
     try {
-        const response = await fetch(`/api/tasks/${taskId}/children`);
+        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/children`); // <-- CAMBIO AQUÍ
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -342,7 +335,7 @@ function App() {
     }
 
     try {
-        const response = await fetch(`/api/tasks/${dependencyTask}/set-parent`, {
+        const response = await fetch(`${API_BASE_URL}/tasks/${dependencyTask}/set-parent`, { // <-- CAMBIO AQUÍ
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -373,7 +366,7 @@ function App() {
     }
     setDependencyMessage(null);
     try {
-        const response = await fetch(`/api/tasks/${taskId}/remove-parent`, {
+        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/remove-parent`, { // <-- CAMBIO AQUÍ
             method: 'DELETE',
         });
 
@@ -401,7 +394,7 @@ function App() {
     setHistoryLoading(true);
     setHistoryError(null);
     try {
-        const response = await fetch(`/api/tasks/${taskId}/history`);
+        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/history`); // <-- CAMBIO AQUÍ
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -429,7 +422,7 @@ function App() {
     setLastOverdueViewedTimestamp(now); // Actualizar el estado para que se recalcule el conteo
 
     try {
-      const response = await fetch('/api/tasks/overdue');
+      const response = await fetch(`${API_BASE_URL}/tasks/overdue`); // <-- CAMBIO AQUÍ
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -466,7 +459,7 @@ function App() {
     setLastNewTasksViewedTimestamp(now); // Actualizar el estado para que se recalcule el conteo
 
     try {
-      const response = await fetch('/api/tasks/newly-created');
+      const response = await fetch(`${API_BASE_URL}/tasks/newly-created`); // <-- CAMBIO AQUÍ
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -869,13 +862,11 @@ function App() {
                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 bg-white text-gray-900"
                   />
                 </div>
-
                 {formMessage && (
                   <div className={`p-3 rounded-md ${formMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                     {formMessage.text}
                   </div>
                 )}
-
                 <button
                   type="submit"
                   className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -885,13 +876,11 @@ function App() {
               </form>
             </section>
           )}
-
           {/* Sección: Detalles y Edición de Tarea Seleccionada */}
           {currentPage === 'taskDetails' && selectedTask && (
             <section className="bg-white p-6 rounded-lg shadow-md mb-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Detalles y Edición de Tarea: {selectedTask.titulo}</h2>
               <p className="text-gray-600 mb-4">Modifica los campos y haz clic en "Actualizar Tarea".</p>
-
               <form onSubmit={handleUpdateTask} className="space-y-4">
                 <div>
                   <label htmlFor="edit_titulo" className="block text-sm font-medium text-gray-700">Título <span className="text-red-500">*</span></label>
@@ -982,13 +971,11 @@ function App() {
                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 bg-white text-gray-900"
                   />
                 </div>
-
                 {formMessage && (
                   <div className={`p-3 rounded-md ${formMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                     {formMessage.text}
                   </div>
                 )}
-
                 <div className="flex space-x-4 mt-6">
                   <button
                     type="submit"
@@ -1011,13 +998,11 @@ function App() {
               </form>
             </section>
           )}
-
           {/* Sección: Gestión de Dependencias */}
           {currentPage === 'dependencies' && (
             <section className="bg-white p-6 rounded-lg shadow-md mb-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Gestión de Dependencias</h2>
               <p className="text-gray-600 mb-4">Establece o elimina relaciones de dependencia entre tareas (Tarea Hija depende de Tarea Padre).</p>
-
               <form onSubmit={handleSetDependency} className="space-y-4 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -1060,13 +1045,11 @@ function App() {
                         </select>
                     </div>
                 </div>
-
                 {dependencyMessage && (
                   <div className={`p-3 rounded-md ${dependencyMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                     {dependencyMessage.text}
                   </div>
                 )}
-
                 <div className="flex space-x-4">
                     <button
                         type="submit"
@@ -1084,7 +1067,6 @@ function App() {
                     </button>
                 </div>
               </form>
-
               <h3 className="text-xl font-bold text-gray-800 mb-3 mt-6">Ver Dependencias de una Tarea Padre</h3>
               <div className="flex items-center space-x-2 mb-4">
                 <select
@@ -1103,7 +1085,6 @@ function App() {
                     ))}
                 </select>
               </div>
-
               {dependencyTask && taskChildren.length > 0 && (
                 <div>
                     <h4 className="text-lg font-semibold text-gray-700 mb-2">Tareas que dependen de ID {dependencyTask}:</h4>
@@ -1119,17 +1100,13 @@ function App() {
               {dependencyTask && !loading && taskChildren.length === 0 && (
                 <p className="text-gray-600">No hay tareas que dependan de la tarea ID {dependencyTask}.</p>
               )}
-
-
             </section>
           )}
-
           {/* Sección: Historial de Tareas */}
           {currentPage === 'history' && (
             <section className="bg-white p-6 rounded-lg shadow-md mb-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Historial de Tareas</h2>
               <p className="text-gray-600 mb-4">Selecciona una tarea para ver su historial de cambios.</p>
-
               <div className="mb-4">
                 <label htmlFor="select_task_for_history" className="block text-sm font-medium text-gray-700">Selecciona Tarea (ID)</label>
                 <select
@@ -1150,14 +1127,11 @@ function App() {
                     ))}
                 </select>
               </div>
-
               {historyLoading && <p className="text-center text-gray-600">Cargando historial...</p>}
               {historyError && <p className="text-center text-red-500">{historyError}</p>}
-
               {!historyLoading && !historyError && selectedTaskForHistory && taskHistory.length === 0 && (
                 <p className="text-gray-600">No hay historial de cambios para la tarea ID {selectedTaskForHistory}.</p>
               )}
-
               {!historyLoading && !historyError && selectedTaskForHistory && taskHistory.length > 0 && (
                 <div className="overflow-x-auto w-full">
                   <table className="w-full table-auto bg-white rounded-lg shadow-md text-sm">
@@ -1188,7 +1162,6 @@ function App() {
               )}
             </section>
           )}
-
           {/* Modal de Alerta Personalizado */}
           {(showOverdueAlert || showNewTasksAlert) && (
             <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -1208,11 +1181,9 @@ function App() {
               </div>
             </div>
           )}
-
         </main>
       </div>
     </div>
   );
 }
-
 export default App;
